@@ -37,23 +37,53 @@ workflow = build_graph(
 )
 
 
-def test(message):
+def test(message, config):
+    checkpoint = workflow.get_state(config)
+    history = checkpoint.values.get("messages", [])
 
-    print("\n")
-    print("=" * 70)
+    result = workflow.invoke(
+        {
+            "messages": history + [
+                {"role": "user", "content": message}
+            ],
+            "user_message": message,
+            "iteration_count": 0,
+        },
+        config=config,
+    )
+
     print("INPUT:", message)
-
-    result = workflow.invoke({
-        "user_message": message
-    })
-
-    print("ROUTE:", result.get("route"))
-    print("ANSWER:", result.get("answer"))
+    print("ANSWER:", result["answer"])
+    print()
 
     return result
 
 
 if __name__ == "__main__":
-    test(
-   "what is"
-)
+    config = {
+        "configurable": {
+            "thread_id": "apoorva-memory-test"
+        }
+    }
+
+    test("My name is Apoorva.", config)
+    test("What is my name?", config)
+
+    checkpoint = workflow.get_state(config)
+
+    print("SAVED MESSAGES:")
+    for message in checkpoint.values["messages"]:
+        print(f'{message["role"]}: {message.get("content", "")}')
+
+    user_messages = [
+        message["content"]
+        for message in checkpoint.values["messages"]
+        if message["role"] == "user"
+    ]
+    assert user_messages == [
+        "My name is Apoorva.",
+        "What is my name?",
+    ]
+
+    assert checkpoint.next == ()
+    print("\nCheckpoint test passed.")

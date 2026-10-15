@@ -150,16 +150,22 @@ def agent_llm_node(
     model_gateway
 ):
 
-    messages = state.get("messages", [
-        {
-            "role": "system",
-            "content": AGENT_SYSTEM_PROMPT,
-        },
+    messages = state.get("messages") or [
         {
             "role": "user",
             "content": state["user_message"],
         }
-    ])
+    ]
+
+    if not any(
+        message.get("role") == "system"
+        and message.get("content") == AGENT_SYSTEM_PROMPT
+        for message in messages
+    ):
+        messages = [
+            {"role": "system", "content": AGENT_SYSTEM_PROMPT},
+            *messages,
+        ]
 
     response = model_gateway.generate(
         model="llama",
@@ -203,7 +209,7 @@ def execute_tool_node(
 
         tool_messages.append({
             "role": "tool",
-            "name": tool_name,
+            "tool_name": tool_name,
             "content": str(result),
         })
 

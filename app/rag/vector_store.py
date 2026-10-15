@@ -7,7 +7,6 @@ from sympy import limit
 class VectorStore:
 
     def __init__(self):
-
         self.connection = psycopg.connect(
             "host=localhost "
             "port=5432 "

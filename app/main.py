@@ -59,41 +59,35 @@ class ChatResponse(BaseModel):
     answer: str
     conversation_id: str
 
-@app.post(
-    "/chat",
-    response_model=ChatResponse
-)
 
-async def chat(payload: ChatRequest):
+@app.post("/chat")
+def chat(request: ChatRequest):
+    """Continue a conversation by ID; history is lost when the server restarts."""
 
     config = {
         "configurable": {
-            "thread_id": payload.conversation_id
+            "thread_id": request.conversation_id
         }
     }
 
     checkpoint = workflow.get_state(config)
-    previous_messages = checkpoint.values.get(
-        "messages",
-        []
-    )
-
-    messages = previous_messages + [
-        {
-            "role": "user",
-            "content": payload.message,
-        }
-    ]
+    history = checkpoint.values.get("messages", [])
 
     result = workflow.invoke(
         {
-            "messages": messages
+            "messages": history + [
+                {
+                    "role": "user",
+                    "content": request.message
+                }
+            ],
+            "user_message": request.message,
+            "iteration_count": 0,
         },
-        config=config,
+        config=config
     )
 
-    return ChatResponse(
-        answer=result["answer"],
-        conversation_id=payload.conversation_id,
-    )
-
+    return {
+        "answer": result["answer"],
+        "conversation_id": request.conversation_id
+    }

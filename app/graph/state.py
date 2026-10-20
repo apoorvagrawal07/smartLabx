@@ -8,7 +8,11 @@ class GraphState(TypedDict, total=False):
 
     route: str
 
+    route_decision: dict[str, Any]
+
     messages: list[dict[str, Any]]
+
+    user_memories: list[dict[str, str]]
 
     retrieved_documents: list[dict[str, Any]]
 
@@ -17,5 +21,7 @@ class GraphState(TypedDict, total=False):
     tool_results: list[dict[str, Any]]
 
     answer: str
+    
+    sources: list[dict[str, Any]]
 
     iteration_count: int

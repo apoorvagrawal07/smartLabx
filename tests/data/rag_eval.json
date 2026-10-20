@@ -1,0 +1,15 @@
+
+[
+  {
+    "question": "What happens when a Kafka consumer crashes?",
+    "relevant_doc_ids": ["kafka_consumer_failure"]
+  },
+  {
+    "question": "Why do consumers commit offsets?",
+    "relevant_doc_ids": ["kafka_offset_management"]
+  },
+  {
+    "question": "What does MAX_POLL_INTERVAL_MS control?",
+    "relevant_doc_ids": ["kafka_poll_interval"]
+  }
+]

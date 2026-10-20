@@ -1,10 +1,13 @@
+from app.models.structured_outputs import CalculatorArguments, CurrentTimeArguments
 from app.tools.calculator import calculate
 from app.tools.time import get_current_time
 
 
 TOOLS = {
     "calculator": {
+        "side_effecting": False,
         "function": calculate,
+        "arguments_model": CalculatorArguments,
         "schema": {
             "type": "function",
             "function": {
@@ -12,25 +15,15 @@ TOOLS = {
                 "description": (
                     "Calculate a mathematical expression."
                 ),
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "expression": {
-                            "type": "string",
-                            "description": (
-                                "Mathematical expression "
-                                "to calculate."
-                            )
-                        }
-                    },
-                    "required": ["expression"]
-                }
+                "parameters": CalculatorArguments.model_json_schema(),
             }
         }
     },
 
     "current_time": {
+        "side_effecting": False,
         "function": get_current_time,
+        "arguments_model": CurrentTimeArguments,
         "schema": {
             "type": "function",
             "function": {
@@ -38,11 +31,7 @@ TOOLS = {
                 "description": (
                     "Get the current date and time."
                 ),
-                "parameters": {
-                    "type": "object",
-                    "properties": {},
-                    "required": []
-                }
+                "parameters": CurrentTimeArguments.model_json_schema(),
             }
         }
     }

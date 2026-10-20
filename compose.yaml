@@ -1,0 +1,35 @@
+
+services:
+  postgres:
+    extends:
+      file: docker-compose.yml
+      service: postgres
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+  app:
+    build: .
+    ports:
+      - "127.0.0.1:8000:8000"
+    environment:
+      DATABASE_URL: postgresql://aiuser:${POSTGRES_PASSWORD:?Set the existing database password in .env}@postgres:5432/aidb
+      HF_HOME: /app/.cache/huggingface
+      OLLAMA_HOST: http://host.docker.internal:11434
+    volumes:
+      - huggingface_cache:/app/.cache/huggingface
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/docs', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 120s
+
+volumes:
+  postgres_data:
+  huggingface_cache:

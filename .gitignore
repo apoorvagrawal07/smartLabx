@@ -7,6 +7,10 @@ __pycache__/
 
 # Local environment configuration
 .env
+local.env
+*.env
+*.pem
+*.key
 .env.*
 !.env.example
 !.env.sample

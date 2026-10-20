@@ -3,7 +3,7 @@ from langgraph.checkpoint.memory import MemorySaver
 from app.graph.state import GraphState
 from app.graph.nodes import (
     router_node,
-    direct_node,
+    make_direct_node,
     rag_node,
     tool_node,
     route_decision,
@@ -16,7 +16,9 @@ from app.graph.nodes import (
 def build_graph(
     model_gateway,
     rag_service,
-    tool_executor
+    tool_executor,
+    *,
+    checkpointer=None,
 ):
 
     graph = StateGraph(GraphState)
@@ -36,10 +38,7 @@ def build_graph(
 
     graph.add_node(
         "direct",
-        lambda state: direct_node(
-            state,
-            model_gateway
-        )
+        make_direct_node(model_gateway)
     )
 
     graph.add_node(
@@ -67,9 +66,10 @@ def build_graph(
         "router",
         route_decision,
         {
-            "llm": "llm",
-            "rag": "rag",
             "direct": "direct",
+            "rag": "rag",
+            "tool": "llm",
+            "clarification": "direct",
         }
     )
 
@@ -96,10 +96,10 @@ def build_graph(
         "rag",
         END
     )
-    
-    checkpointer = MemorySaver()
+
 
     return graph.compile(
-    checkpointer=checkpointer
-)
+        checkpointer=checkpointer if checkpointer is not None else MemorySaver()
+    )
+
 

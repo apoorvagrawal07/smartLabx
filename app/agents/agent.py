@@ -3,6 +3,8 @@ import re
 from app.models.llm import LLMMessage
 from app.agents.state import AgentState
 from app.agents.router import AgentRouter
+from app.agents.authorized_executor import AuthorizedExecutor
+from app.agents.permissions import AgentRole, authorize_tool
 
 
 class Agent:
@@ -53,6 +55,7 @@ class Agent:
 
     def _run_rag(self, state):
 
+        authorize_tool(AgentRole.RAG, "knowledge_search")
         result = self.rag_service.answer(
             state.user_message
         )
@@ -63,7 +66,8 @@ class Agent:
 
     def _run_tool(self, state):
 
-        result = self.tool_executor.execute(
+        result = AuthorizedExecutor(self.tool_executor).execute(
+            role=AgentRole.TOOL,
             tool_name="calculator",
             arguments={
                 "expression": self._extract_expression(

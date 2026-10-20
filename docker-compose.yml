@@ -5,7 +5,7 @@ services:
     container_name: ai-postgres
     environment:
       POSTGRES_USER: aiuser
-      POSTGRES_PASSWORD: aipassword
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set the existing database password in .env}
       POSTGRES_DB: aidb
     ports:
       - "5432:5432"

@@ -1,4 +1,9 @@
+import os
+
 from ollama import Client
+from httpx import NetworkError, TimeoutException
+
+from app.rag.retry import retry_transient
 
 from app.models.llm import (
     LLMProvider,
@@ -10,7 +15,10 @@ class OllamaProvider(LLMProvider):
 
     def __init__(self, model: str, host: str | None = None):
         self.model = model
-        self.client = Client(host=host or "http://localhost:11434")
+        self.client = Client(
+            host=host or os.environ.get("OLLAMA_HOST", "http://localhost:11434"),
+            timeout=60,
+        )
 
     @staticmethod
     def _normalize_messages(messages):
@@ -38,10 +46,15 @@ class OllamaProvider(LLMProvider):
         tools=None
     ):
 
-        response = self.client.chat(
-            model=self.model,
-            messages=self._normalize_messages(messages),
-            tools=tools,
+        normalized_messages = self._normalize_messages(messages)
+        response = retry_transient(
+            lambda: self.client.chat(
+                model=self.model,
+                messages=normalized_messages,
+                tools=tools,
+            ),
+            attempts=3,
+            retry_on=(TimeoutError, ConnectionError, NetworkError, TimeoutException),
         )
 
         tool_calls = []

@@ -4,7 +4,12 @@ from unittest.mock import Mock, patch
 
 from ollama import Message
 
-from app.graph.nodes import AGENT_SYSTEM_PROMPT, agent_llm_node
+from app.graph.nodes import (
+    AGENT_SYSTEM_PROMPT,
+    MAX_TOOL_ITERATIONS,
+    agent_llm_node,
+    execute_tool_node,
+)
 from app.graph.workflow import build_graph
 from app.models.llm import LLMResponse
 from app.rag.rag_service import RAGService
@@ -34,6 +39,67 @@ class FakeModelGateway:
 
 
 class ToolLoopTests(unittest.TestCase):
+    def test_repeated_tool_calls_stop_at_hard_limit(self):
+        gateway = Mock()
+        gateway.generate.return_value = LLMResponse(
+            content="",
+            tool_calls=[{
+                "tool_name": "calculator",
+                "arguments": {"expression": "2 + 3"},
+            }],
+        )
+        executor = Mock()
+        executor.execute.return_value = "5"
+        graph = build_graph(gateway, Mock(), executor)
+        config = {"configurable": {"thread_id": "iteration-limit"}}
+
+        result = graph.invoke({"user_message": "Calculate 2 + 3"}, config=config)
+
+        self.assertEqual(gateway.generate.call_count, MAX_TOOL_ITERATIONS)
+        self.assertEqual(executor.execute.call_count, MAX_TOOL_ITERATIONS)
+        self.assertEqual(result["iteration_count"], MAX_TOOL_ITERATIONS)
+        self.assertIn("iteration limit", result["answer"])
+        self.assertEqual(result["messages"][-1]["tool_calls"], [])
+        self.assertEqual(graph.get_state(config).values["answer"], result["answer"])
+
+    def test_exhausted_budget_prevents_direct_dispatch(self):
+        executor = Mock()
+
+        with self.assertRaisesRegex(RuntimeError, "iteration limit"):
+            execute_tool_node({"iteration_count": MAX_TOOL_ITERATIONS}, executor)
+
+        executor.execute.assert_not_called()
+
+    def test_tools_are_limited_to_the_latest_request(self):
+        cases = [
+            ("Why is name", []),
+            ("Hello!", []),
+            ("Calculate 125 * 42", ["calculator"]),
+            ("What time is it?", ["current_time"]),
+            ("What is today's date?", ["current_time"]),
+            ("What is 125 * 42 and what time is it?",
+             ["calculator", "current_time"]),
+        ]
+        gateway = Mock()
+        gateway.generate.return_value = LLMResponse(content="Answer")
+
+        for question, expected_tools in cases:
+            with self.subTest(question=question):
+                agent_llm_node(
+                    {"messages": [
+                        {"role": "user", "content": "Calculate 2 * 3"},
+                        {"role": "assistant", "content": "6"},
+                        {"role": "user", "content": question},
+                    ]},
+                    gateway,
+                )
+
+                tools = gateway.generate.call_args.kwargs["tools"]
+                self.assertEqual(
+                    [tool["function"]["name"] for tool in tools or []],
+                    expected_tools,
+                )
+
     def test_chat_messages_include_system_prompt(self):
         gateway = Mock()
         gateway.generate.return_value = LLMResponse(content="Hello!")

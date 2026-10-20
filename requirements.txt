@@ -1,0 +1,16 @@
+fastapi==0.143.0
+httpx==0.28.1
+langgraph==1.2.15
+langgraph-checkpoint-postgres==3.2.0
+ollama==0.6.3
+psycopg[binary,pool]==3.3.6
+psycopg-pool==3.3.3
+pydantic==2.14.1
+sentence-transformers==6.1.0
+simpleeval==1.0.8
+starlette==1.8.0
+sympy==1.14.0
+torch==2.14.1
+transformers==5.19.0
+typing_extensions==4.16.0
+uvicorn==0.54.0

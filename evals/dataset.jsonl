@@ -1,0 +1,7 @@
+
+{"input":"Explain what an API gateway is","expected_route":"direct"}
+{"input":"What happens when a Kafka consumer crashes?","expected_route":"rag"}
+{"input":"Calculate 125 * 42","expected_route":"tool"}
+{"input":"Search the internal documentation for retry policies","expected_route":"rag"}
+{"input":"What is 12 multiplied by 19?","expected_route":"tool"}
+{"input":"Explain what a transformer model is","expected_route":"direct"}

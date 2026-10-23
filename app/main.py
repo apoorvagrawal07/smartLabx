@@ -9,6 +9,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.responses import JSONResponse
 from pydantic import BaseModel, Field
 
+from pydantic import BaseModel, Field, field_validator
 from app.middleware.request_context import (
     request_context_middleware
 )
@@ -142,9 +143,6 @@ class LazyRetriever:
             if self._retriever is not None:
                 self._retriever.hybrid_retriever.vector_store.connection.close()
                 self._retriever = None
-
-
-from pydantic import BaseModel, Field, field_validator
 
 
 class ChatRequest(BaseModel):

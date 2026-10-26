@@ -7,6 +7,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app import main
+from app.graph.nodes import DIRECT_SYSTEM_PROMPT
 
 
 @pytest.fixture
@@ -93,7 +94,7 @@ def test_tool_route_executes_calculator(client, conversation_id):
 def test_multiple_turns_share_checkpoint_thread(client, conversation_id):
     first = client.post(
         "/chat",
-        json={"message": "My name is Apoorva.", "conversation_id": conversation_id},
+        json={"message": "My name is Shanu.", "conversation_id": conversation_id},
     )
     assert first.status_code == 200
     previous = checkpoint(conversation_id)["messages"]
@@ -108,13 +109,11 @@ def test_multiple_turns_share_checkpoint_thread(client, conversation_id):
 
     assert second.status_code == 200
     assert second.json()["conversation_id"] == conversation_id
-    assert second.json()["answer"].strip()
+    assert "shanu" in second.json()["answer"].lower()
     expected_messages = previous + [{"role": "user", "content": "What is my name?"}]
-    expected_prompt = "\n".join(
-        f"{message['role'].capitalize()}: {message['content']}"
-        for message in expected_messages
-    ) + "\nAssistant:"
-    generate.assert_called_once_with(prompt=expected_prompt)
+    generate.assert_called_once_with(model="llama", messages=[
+        {"role": "system", "content": DIRECT_SYSTEM_PROMPT}, *expected_messages,
+    ])
     messages = checkpoint(conversation_id)["messages"]
     assert messages[:len(previous)] == previous
     assert messages[len(previous)] == {"role": "user", "content": "What is my name?"}

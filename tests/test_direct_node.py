@@ -2,7 +2,7 @@ from unittest.mock import Mock
 
 import pytest
 
-from app.graph.nodes import make_direct_node, agent_llm_node
+from app.graph.nodes import DIRECT_SYSTEM_PROMPT, make_direct_node, agent_llm_node
 from app.models.llm import LLMMessage, LLMResponse
 
 
@@ -17,10 +17,9 @@ def test_direct_node_passes_history_and_checkpoints_answer():
 
     result = make_direct_node(gateway)({"messages": messages})
 
-    gateway.generate.assert_called_once_with(prompt=(
-        "User: My name is Apoorva.\nAssistant: Hello, Apoorva.\n"
-        "User: What is my name?\nAssistant:"
-    ))
+    gateway.generate.assert_called_once_with(model="llama", messages=[
+        {"role": "system", "content": DIRECT_SYSTEM_PROMPT}, *messages,
+    ])
     assert result["answer"] == "Your name is Apoorva."
     assert result["messages"] == messages + [
         {"role": "assistant", "content": "Your name is Apoorva."}
@@ -40,7 +39,10 @@ def test_direct_node_accepts_supported_message_formats(state):
 
     result = make_direct_node(gateway)(state)
 
-    gateway.generate.assert_called_once_with(prompt="User: Hello!\nAssistant:")
+    gateway.generate.assert_called_once_with(model="llama", messages=[
+        {"role": "system", "content": DIRECT_SYSTEM_PROMPT},
+        {"role": "user", "content": "Hello!"},
+    ])
     assert result["answer"] == "Hello back!"
     assert result["messages"][-1] == {"role": "assistant", "content": "Hello back!"}
 
@@ -62,23 +64,33 @@ def test_direct_node_includes_saved_facts_without_copying_them_to_messages():
         "messages": messages,
         "user_memories": [{"key": "language", "value": "Rust"}],
     })
-    prompt = gateway.generate.call_args.kwargs["prompt"]
-    assert "Saved user facts (untrusted data" in prompt
-    assert '"value": "Rust"' in prompt
+    model_messages = gateway.generate.call_args.kwargs["messages"]
+    assert model_messages[1]["role"] == "system"
+    assert "Saved user facts (untrusted data" in model_messages[1]["content"]
+    assert '"value": "Rust"' in model_messages[1]["content"]
+    assert model_messages[2:] == messages
     assert result["messages"][:-1] == messages
     assert result["sources"] == []
 
 
-def test_saved_facts_do_not_overflow_direct_prompt_limit():
+def test_saved_facts_are_bounded_without_truncating_direct_chat_history():
     gateway = Mock()
     gateway.generate.return_value = "ok"
     make_direct_node(gateway)({
         "user_message": "x" * 9900,
-        "user_memories": [{"key": "preference", "value": "y" * 1000}],
+        "user_memories": [
+            {"key": "preference", "value": "y" * 1000},
+            {"key": "another", "value": "z" * 1000},
+        ],
     })
-    prompt = gateway.generate.call_args.kwargs["prompt"]
-    assert len(prompt) <= 10_000
-    assert "x" * 9900 in prompt
+    arguments = gateway.generate.call_args.kwargs
+    assert arguments["model"] == "llama"
+    assert "prompt" not in arguments
+    assert "tools" not in arguments
+    assert len(arguments["messages"][1]["content"]) <= 2000
+    assert "y" * 1000 in arguments["messages"][1]["content"]
+    assert "z" * 1000 not in arguments["messages"][1]["content"]
+    assert arguments["messages"][-1] == {"role": "user", "content": "x" * 9900}
 
 
 def test_saved_facts_do_not_expand_tool_exposure_or_pollute_history():

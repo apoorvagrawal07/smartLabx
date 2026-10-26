@@ -72,14 +72,17 @@ with TestClient(main.app) as client:
         saved = client.post("/memories", json={"key": "language", "value": "Rust"})
         assert saved.status_code == 200
     else:
-        assert "User: My favorite language is Rust." in gateway.generate.call_args.kwargs["prompt"]
-        assert "Assistant: Recorded." in gateway.generate.call_args.kwargs["prompt"]
-        assert '"value": "Rust"' in gateway.generate.call_args.kwargs["prompt"]
+        arguments = gateway.generate.call_args.kwargs
+        assert arguments["model"] == "llama" and "prompt" not in arguments
+        messages = arguments["messages"]
+        assert {"role": "user", "content": "My favorite language is Rust."} in messages
+        assert {"role": "assistant", "content": "Recorded."} in messages
+        assert any('"value": "Rust"' in message["content"] for message in messages)
         fresh = client.post("/chat", json={"message": "What language do I prefer?", "conversation_id": payload["id"] + "-fresh"})
         assert fresh.status_code == 200
-        prompt = gateway.generate.call_args.kwargs["prompt"]
-        assert "Saved user facts" in prompt and '"value": "Rust"' in prompt
-        assert "My favorite language is Rust." not in prompt
+        messages = gateway.generate.call_args.kwargs["messages"]
+        assert any("Saved user facts" in message["content"] and '"value": "Rust"' in message["content"] for message in messages)
+        assert not any("My favorite language is Rust." in message["content"] for message in messages)
     state = graph.get_state({"configurable": {"thread_id": payload["id"]}}).values
     cookie = response.cookies[SESSION_COOKIE]
     owner_id = main.app.state.conversation_access.owner_id(cookie)

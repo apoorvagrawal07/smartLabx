@@ -5,6 +5,7 @@ from uuid import UUID
 from fastapi.testclient import TestClient
 
 from app import main
+from app.graph.nodes import DIRECT_SYSTEM_PROMPT
 from app.graph.workflow import build_graph
 from app.models.llm import LLMResponse
 from app.services.conversation_access import ConversationAccess
@@ -74,9 +75,9 @@ class ChatTests(unittest.TestCase):
             },
         )
         self.assertEqual(
-            self.gateway.generate.call_args.kwargs["prompt"],
-            "User: My name is Apoorva.\nAssistant: Hello!\n"
-            "User: What is my name?\nAssistant:",
+            self.gateway.generate.call_args.kwargs["messages"],
+            [{"role": "system", "content": DIRECT_SYSTEM_PROMPT},
+             *previous, {"role": "user", "content": "What is my name?"}],
         )
         state = self.workflow.get_state(self.config).values
         self.assertEqual(state["user_message"], "What is my name?")
@@ -92,8 +93,9 @@ class ChatTests(unittest.TestCase):
 
         self.assertEqual(response["conversation_id"], "new-chat")
         self.assertEqual(
-            self.gateway.generate.call_args.kwargs["prompt"],
-            "User: Hello!\nAssistant:",
+            self.gateway.generate.call_args.kwargs["messages"],
+            [{"role": "system", "content": DIRECT_SYSTEM_PROMPT},
+             {"role": "user", "content": "Hello!"}],
         )
         self.assertEqual(
             self.workflow.get_state(self.config).values["messages"], previous
@@ -147,10 +149,13 @@ class ChatTests(unittest.TestCase):
         self.send("Why is name")
 
         self.assertEqual(
-            self.gateway.generate.call_args.kwargs["prompt"],
-            f"User: {question}\nAssistant: {answer}\n"
-            f"User: {question}\nAssistant: {answer}\n"
-            "User: Why is name\nAssistant:",
+            self.gateway.generate.call_args.kwargs["messages"],
+            [{"role": "system", "content": DIRECT_SYSTEM_PROMPT},
+             {"role": "user", "content": question},
+             {"role": "assistant", "content": answer},
+             {"role": "user", "content": question},
+             {"role": "assistant", "content": answer},
+             {"role": "user", "content": "Why is name"}],
         )
 
     def test_direct_route_bypasses_tool_reasoning_node(self):
@@ -159,7 +164,11 @@ class ChatTests(unittest.TestCase):
 
         tool_reasoning.assert_not_called()
         self.gateway.generate.assert_called_once_with(
-            prompt="User: Explain what an API gateway is.\nAssistant:"
+            model="llama",
+            messages=[
+                {"role": "system", "content": DIRECT_SYSTEM_PROMPT},
+                {"role": "user", "content": "Explain what an API gateway is."},
+            ],
         )
         self.assertEqual(set(response), {"answer", "conversation_id", "sources"})
 
